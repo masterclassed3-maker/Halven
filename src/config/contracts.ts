@@ -1,0 +1,7 @@
+﻿export const CONTRACTS = {
+  halvToken: "0x90c13562C490d138E72B8ec2eFB2fD56a6FA74fb",
+  vesting: "0x60FB6CCDAF28D8B3F54d411Cf0e0da82D6b2D2DF",
+  farm: "0xa010044b4ecaa75B336C43665f9d30Fef773e8Fe",
+  lpUsdc: "0xd3b5c687fcdb0a5713f7020f01719c37537871d4",
+  lpWmon: "0xd50e913cb24158a0a354c5adeceb0c025393574e",
+} as const;
