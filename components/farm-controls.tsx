@@ -33,6 +33,16 @@ function formatToken(
   }
 }
 
+function toPlainAmountString(value: unknown, decimals = 18): string {
+  if (typeof value !== "bigint") return "0";
+
+  try {
+    return formatUnits(value, decimals);
+  } catch {
+    return "0";
+  }
+}
+
 function shortenAddress(address?: string) {
   if (!address) return "";
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
@@ -105,8 +115,11 @@ function statLabel(label: string) {
 export default function FarmControls() {
   const [mounted, setMounted] = useState(false);
 
-  const [amountMon, setAmountMon] = useState("");
-  const [amountUsdc, setAmountUsdc] = useState("");
+  const [depositAmountMon, setDepositAmountMon] = useState("");
+  const [withdrawAmountMon, setWithdrawAmountMon] = useState("");
+  const [depositAmountUsdc, setDepositAmountUsdc] = useState("");
+  const [withdrawAmountUsdc, setWithdrawAmountUsdc] = useState("");
+
   const [uiError, setUiError] = useState("");
 
   useEffect(() => {
@@ -292,6 +305,9 @@ export default function FarmControls() {
     | readonly [bigint, bigint]
     | undefined;
 
+  const monStaked = monUser?.[0] ?? 0n;
+  const usdcStaked = usdcUser?.[0] ?? 0n;
+
   const monPending = useMemo(() => {
     if (
       !monPool ||
@@ -354,7 +370,7 @@ export default function FarmControls() {
     setUiError("");
 
     if (!amount) {
-      setUiError("Enter an amount before approving.");
+      setUiError("Enter a deposit amount before approving.");
       return;
     }
 
@@ -383,7 +399,7 @@ export default function FarmControls() {
     }
 
     if (!amount) {
-      setUiError("Enter an amount before depositing.");
+      setUiError("Enter a deposit amount before depositing.");
       return;
     }
 
@@ -412,7 +428,7 @@ export default function FarmControls() {
     }
 
     if (!amount) {
-      setUiError("Enter an amount before withdrawing.");
+      setUiError("Enter a withdraw amount before withdrawing.");
       return;
     }
 
@@ -514,6 +530,7 @@ export default function FarmControls() {
           </div>
 
           <div className="mt-8 grid gap-6 xl:grid-cols-2">
+            {/* MON POOL */}
             <div className="rounded-2xl border border-neutral-800 bg-black p-5">
               <div className="mb-5 flex items-start justify-between gap-4">
                 <div>
@@ -539,7 +556,7 @@ export default function FarmControls() {
                 <div>
                   {statLabel("Staked Balance")}
                   <p className="mt-2 text-xl font-semibold">
-                    {formatToken(monUser?.[0], lpMonDecimals)}
+                    {formatToken(monStaked, lpMonDecimals)}
                   </p>
                 </div>
 
@@ -558,68 +575,98 @@ export default function FarmControls() {
                 </div>
               </div>
 
-              <div className="mt-6">
-                {statLabel("Amount")}
-                <div className="mt-2 flex items-center gap-2">
-                  <input
-                    type="number"
-                    placeholder="Enter LP amount"
-                    value={amountMon}
-                    onChange={(e) => setAmountMon(e.target.value)}
-                    className="w-full rounded-xl border border-neutral-800 bg-neutral-950 px-4 py-3 text-sm outline-none transition focus:border-neutral-600"
-                  />
-                  <button
-                    onClick={() =>
-                      setAmountMon(
-                        formatToken(lpMonBalance, lpMonDecimals, 18).replace(/,/g, "")
-                      )
-                    }
-                    className="rounded-xl border border-neutral-700 bg-neutral-900 px-4 py-3 text-sm font-semibold transition hover:bg-neutral-800"
-                  >
-                    Max
-                  </button>
+              <div className="mt-6 grid gap-4">
+                <div className="rounded-2xl border border-neutral-800 bg-neutral-950 p-4">
+                  {statLabel("Deposit Amount")}
+                  <div className="mt-2 flex items-center gap-2">
+                    <input
+                      type="number"
+                      placeholder="Enter LP amount to deposit"
+                      value={depositAmountMon}
+                      onChange={(e) => setDepositAmountMon(e.target.value)}
+                      className="w-full rounded-xl border border-neutral-800 bg-black px-4 py-3 text-sm outline-none transition focus:border-neutral-600"
+                    />
+                    <button
+                      onClick={() =>
+                        setDepositAmountMon(
+                          toPlainAmountString(lpMonBalance, lpMonDecimals)
+                        )
+                      }
+                      className="rounded-xl border border-neutral-700 bg-neutral-900 px-4 py-3 text-sm font-semibold transition hover:bg-neutral-800"
+                    >
+                      Max
+                    </button>
+                  </div>
+
+                  <div className="mt-3 grid grid-cols-2 gap-3">
+                    <button
+                      onClick={() =>
+                        approveLP(CONTRACTS.lpWmon, depositAmountMon, lpMonDecimals)
+                      }
+                      disabled={isWritePending}
+                      className="rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold transition hover:bg-blue-500 disabled:opacity-60"
+                    >
+                      Approve
+                    </button>
+
+                    <button
+                      onClick={() =>
+                        deposit(pidMonBigInt, depositAmountMon, lpMonDecimals)
+                      }
+                      disabled={isWritePending}
+                      className="rounded-xl bg-green-600 px-4 py-3 text-sm font-semibold transition hover:bg-green-500 disabled:opacity-60"
+                    >
+                      Deposit
+                    </button>
+                  </div>
                 </div>
-              </div>
 
-              <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-4">
-                <button
-                  onClick={() =>
-                    approveLP(CONTRACTS.lpWmon, amountMon, lpMonDecimals)
-                  }
-                  disabled={isWritePending}
-                  className="rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold transition hover:bg-blue-500 disabled:opacity-60"
-                >
-                  Approve
-                </button>
+                <div className="rounded-2xl border border-neutral-800 bg-neutral-950 p-4">
+                  {statLabel("Withdraw Amount")}
+                  <div className="mt-2 flex items-center gap-2">
+                    <input
+                      type="number"
+                      placeholder="Enter LP amount to withdraw"
+                      value={withdrawAmountMon}
+                      onChange={(e) => setWithdrawAmountMon(e.target.value)}
+                      className="w-full rounded-xl border border-neutral-800 bg-black px-4 py-3 text-sm outline-none transition focus:border-neutral-600"
+                    />
+                    <button
+                      onClick={() =>
+                        setWithdrawAmountMon(
+                          toPlainAmountString(monStaked, lpMonDecimals)
+                        )
+                      }
+                      className="rounded-xl border border-neutral-700 bg-neutral-900 px-4 py-3 text-sm font-semibold transition hover:bg-neutral-800"
+                    >
+                      Max
+                    </button>
+                  </div>
 
-                <button
-                  onClick={() => deposit(pidMonBigInt, amountMon, lpMonDecimals)}
-                  disabled={isWritePending}
-                  className="rounded-xl bg-green-600 px-4 py-3 text-sm font-semibold transition hover:bg-green-500 disabled:opacity-60"
-                >
-                  Deposit
-                </button>
+                  <div className="mt-3 grid grid-cols-2 gap-3">
+                    <button
+                      onClick={() => claim(pidMonBigInt)}
+                      disabled={isWritePending}
+                      className="rounded-xl bg-yellow-600 px-4 py-3 text-sm font-semibold text-black transition hover:bg-yellow-500 disabled:opacity-60"
+                    >
+                      Claim
+                    </button>
 
-                <button
-                  onClick={() => claim(pidMonBigInt)}
-                  disabled={isWritePending}
-                  className="rounded-xl bg-yellow-600 px-4 py-3 text-sm font-semibold text-black transition hover:bg-yellow-500 disabled:opacity-60"
-                >
-                  Claim
-                </button>
-
-                <button
-                  onClick={() =>
-                    withdraw(pidMonBigInt, amountMon, lpMonDecimals)
-                  }
-                  disabled={isWritePending}
-                  className="rounded-xl bg-red-600 px-4 py-3 text-sm font-semibold transition hover:bg-red-500 disabled:opacity-60"
-                >
-                  Withdraw
-                </button>
+                    <button
+                      onClick={() =>
+                        withdraw(pidMonBigInt, withdrawAmountMon, lpMonDecimals)
+                      }
+                      disabled={isWritePending}
+                      className="rounded-xl bg-red-600 px-4 py-3 text-sm font-semibold transition hover:bg-red-500 disabled:opacity-60"
+                    >
+                      Withdraw
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
 
+            {/* USDC POOL */}
             <div className="rounded-2xl border border-neutral-800 bg-black p-5">
               <div className="mb-5 flex items-start justify-between gap-4">
                 <div>
@@ -645,7 +692,7 @@ export default function FarmControls() {
                 <div>
                   {statLabel("Staked Balance")}
                   <p className="mt-2 text-xl font-semibold">
-                    {formatToken(usdcUser?.[0], lpUsdcDecimals)}
+                    {formatToken(usdcStaked, lpUsdcDecimals)}
                   </p>
                 </div>
 
@@ -664,65 +711,94 @@ export default function FarmControls() {
                 </div>
               </div>
 
-              <div className="mt-6">
-                {statLabel("Amount")}
-                <div className="mt-2 flex items-center gap-2">
-                  <input
-                    type="number"
-                    placeholder="Enter LP amount"
-                    value={amountUsdc}
-                    onChange={(e) => setAmountUsdc(e.target.value)}
-                    className="w-full rounded-xl border border-neutral-800 bg-neutral-950 px-4 py-3 text-sm outline-none transition focus:border-neutral-600"
-                  />
-                  <button
-                    onClick={() =>
-                      setAmountUsdc(
-                        formatToken(lpUsdcBalance, lpUsdcDecimals, 18).replace(/,/g, "")
-                      )
-                    }
-                    className="rounded-xl border border-neutral-700 bg-neutral-900 px-4 py-3 text-sm font-semibold transition hover:bg-neutral-800"
-                  >
-                    Max
-                  </button>
+              <div className="mt-6 grid gap-4">
+                <div className="rounded-2xl border border-neutral-800 bg-neutral-950 p-4">
+                  {statLabel("Deposit Amount")}
+                  <div className="mt-2 flex items-center gap-2">
+                    <input
+                      type="number"
+                      placeholder="Enter LP amount to deposit"
+                      value={depositAmountUsdc}
+                      onChange={(e) => setDepositAmountUsdc(e.target.value)}
+                      className="w-full rounded-xl border border-neutral-800 bg-black px-4 py-3 text-sm outline-none transition focus:border-neutral-600"
+                    />
+                    <button
+                      onClick={() =>
+                        setDepositAmountUsdc(
+                          toPlainAmountString(lpUsdcBalance, lpUsdcDecimals)
+                        )
+                      }
+                      className="rounded-xl border border-neutral-700 bg-neutral-900 px-4 py-3 text-sm font-semibold transition hover:bg-neutral-800"
+                    >
+                      Max
+                    </button>
+                  </div>
+
+                  <div className="mt-3 grid grid-cols-2 gap-3">
+                    <button
+                      onClick={() =>
+                        approveLP(CONTRACTS.lpUsdc, depositAmountUsdc, lpUsdcDecimals)
+                      }
+                      disabled={isWritePending}
+                      className="rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold transition hover:bg-blue-500 disabled:opacity-60"
+                    >
+                      Approve
+                    </button>
+
+                    <button
+                      onClick={() =>
+                        deposit(pidUsdcBigInt, depositAmountUsdc, lpUsdcDecimals)
+                      }
+                      disabled={isWritePending}
+                      className="rounded-xl bg-green-600 px-4 py-3 text-sm font-semibold transition hover:bg-green-500 disabled:opacity-60"
+                    >
+                      Deposit
+                    </button>
+                  </div>
                 </div>
-              </div>
 
-              <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-4">
-                <button
-                  onClick={() =>
-                    approveLP(CONTRACTS.lpUsdc, amountUsdc, lpUsdcDecimals)
-                  }
-                  disabled={isWritePending}
-                  className="rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold transition hover:bg-blue-500 disabled:opacity-60"
-                >
-                  Approve
-                </button>
+                <div className="rounded-2xl border border-neutral-800 bg-neutral-950 p-4">
+                  {statLabel("Withdraw Amount")}
+                  <div className="mt-2 flex items-center gap-2">
+                    <input
+                      type="number"
+                      placeholder="Enter LP amount to withdraw"
+                      value={withdrawAmountUsdc}
+                      onChange={(e) => setWithdrawAmountUsdc(e.target.value)}
+                      className="w-full rounded-xl border border-neutral-800 bg-black px-4 py-3 text-sm outline-none transition focus:border-neutral-600"
+                    />
+                    <button
+                      onClick={() =>
+                        setWithdrawAmountUsdc(
+                          toPlainAmountString(usdcStaked, lpUsdcDecimals)
+                        )
+                      }
+                      className="rounded-xl border border-neutral-700 bg-neutral-900 px-4 py-3 text-sm font-semibold transition hover:bg-neutral-800"
+                    >
+                      Max
+                    </button>
+                  </div>
 
-                <button
-                  onClick={() => deposit(pidUsdcBigInt, amountUsdc, lpUsdcDecimals)}
-                  disabled={isWritePending}
-                  className="rounded-xl bg-green-600 px-4 py-3 text-sm font-semibold transition hover:bg-green-500 disabled:opacity-60"
-                >
-                  Deposit
-                </button>
+                  <div className="mt-3 grid grid-cols-2 gap-3">
+                    <button
+                      onClick={() => claim(pidUsdcBigInt)}
+                      disabled={isWritePending}
+                      className="rounded-xl bg-yellow-600 px-4 py-3 text-sm font-semibold text-black transition hover:bg-yellow-500 disabled:opacity-60"
+                    >
+                      Claim
+                    </button>
 
-                <button
-                  onClick={() => claim(pidUsdcBigInt)}
-                  disabled={isWritePending}
-                  className="rounded-xl bg-yellow-600 px-4 py-3 text-sm font-semibold text-black transition hover:bg-yellow-500 disabled:opacity-60"
-                >
-                  Claim
-                </button>
-
-                <button
-                  onClick={() =>
-                    withdraw(pidUsdcBigInt, amountUsdc, lpUsdcDecimals)
-                  }
-                  disabled={isWritePending}
-                  className="rounded-xl bg-red-600 px-4 py-3 text-sm font-semibold transition hover:bg-red-500 disabled:opacity-60"
-                >
-                  Withdraw
-                </button>
+                    <button
+                      onClick={() =>
+                        withdraw(pidUsdcBigInt, withdrawAmountUsdc, lpUsdcDecimals)
+                      }
+                      disabled={isWritePending}
+                      className="rounded-xl bg-red-600 px-4 py-3 text-sm font-semibold transition hover:bg-red-500 disabled:opacity-60"
+                    >
+                      Withdraw
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
